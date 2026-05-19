@@ -6,6 +6,8 @@ import pandas as pd
 
 def _plt():
     try:
+        import matplotlib
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(

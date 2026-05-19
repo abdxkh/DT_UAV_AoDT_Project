@@ -95,6 +95,20 @@ def make_cfg(profile="small"):
         cfg.area_size = 600.0
         cfg.E_bh_max_per_uav = 0.015
         cfg.E_scale = 0.015
+    elif profile == "submission":
+        cfg.M, cfg.E, cfg.I = 3, 5, 15
+        cfg.H, cfg.K = 15, 20
+        cfg.area_size = 800.0
+        cfg.grid_n = 3
+        cfg.E_bh_max_per_uav = 0.0012
+        cfg.E_scale = 0.0012
+        cfg.V = 6.0
+        cfg.manager_bh_soft_weight = 1.0
+        cfg.worker_updates = 50
+        cfg.manager_updates = 80
+        cfg.worker_steps_per_update = 768
+        cfg.manager_episodes_per_update = 5
+        cfg.batch_size = 256
     elif profile == "paper":
         cfg.M, cfg.E, cfg.I = 3, 5, 15
         cfg.H, cfg.K = 20, 25

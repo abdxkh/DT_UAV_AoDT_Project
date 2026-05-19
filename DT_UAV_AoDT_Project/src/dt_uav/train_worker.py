@@ -9,6 +9,9 @@ from .ppo import ActorCritic, PPOTrainer, RolloutBuffer, save_checkpoint
 
 def train_worker(cfg, out_dir="results"):
     os.makedirs(out_dir, exist_ok=True)
+    torch.manual_seed(cfg.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(cfg.seed)
     env = DTUAVAoDTEnv(cfg, seed=cfg.seed)
     model = ActorCritic(len(env.worker_state()), env.worker_action_dim)
     trainer = PPOTrainer(
@@ -61,7 +64,7 @@ def train_worker(cfg, out_dir="results"):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--profile", default="small", choices=["tiny", "small", "paper"])
+    p.add_argument("--profile", default="small", choices=["tiny", "small", "submission", "paper"])
     p.add_argument("--out", default="results")
     args = p.parse_args()
     cfg = make_cfg(args.profile)

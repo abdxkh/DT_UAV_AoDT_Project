@@ -116,7 +116,7 @@ def print_result(result):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--profile", default="small", choices=["tiny", "small", "paper"])
+    parser.add_argument("--profile", default="small", choices=["tiny", "small", "submission", "paper"])
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
 

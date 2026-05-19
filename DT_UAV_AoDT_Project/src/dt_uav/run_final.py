@@ -10,7 +10,7 @@ from .train_worker import train_worker
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--profile", default="small", choices=["small", "paper"])
+    parser.add_argument("--profile", default="submission", choices=["small", "submission", "paper"])
     parser.add_argument("--out", default="results_final")
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--worker-updates", type=int, default=None)

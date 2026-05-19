@@ -274,22 +274,20 @@ class DTUAVAoDTEnv:
         else:
             target_sensors = set()
         mask = np.zeros(self.worker_action_dim, dtype=np.bool_)
-        for action in range(self.worker_action_dim):
-            choices = self.decode_worker_action(action)
-            selected = []
-            valid = True
-            for sensor, p_idx in choices:
-                if p_idx < 0 or p_idx >= len(self.cfg.p_levels):
-                    valid = False
-                    break
-                if sensor < 0:
-                    continue
-                if sensor not in pending or sensor in selected:
-                    valid = False
-                    break
-                selected.append(sensor)
-            if valid and len(selected) == target_served and set(selected) == target_sensors:
-                mask[action] = True
+        if target_served == 0:
+            mask[self.encode_worker_choices([(-1, 0)] * self.M)] = True
+            return mask
+
+        idle_count = self.M - target_served
+        scheduled = list(target_sensors) + [-1] * idle_count
+        for sensors_by_uav in set(itertools.permutations(scheduled, self.M)):
+            power_choices = [
+                range(len(self.cfg.p_levels)) if sensor >= 0 else [0]
+                for sensor in sensors_by_uav
+            ]
+            for p_idxs in itertools.product(*power_choices):
+                choices = list(zip(sensors_by_uav, p_idxs))
+                mask[self.encode_worker_choices(choices)] = True
         if not np.any(mask):
             mask[0] = True
         return mask
@@ -338,7 +336,12 @@ class ManagerEnv:
         self.fast.Z = np.maximum(self.fast.Z + excess / max(self.cfg.E_scale, 1e-12), 0.0).astype(np.float32)
 
         lyap_cost = float(np.dot(old_Z, excess / max(self.cfg.E_scale, 1e-12)))
-        reward = -self.cfg.V * avg_aodt / self.cfg.aodt_scale - lyap_cost
+        soft_violation = float(np.sum(np.maximum(excess, 0.0)) / max(self.cfg.E_scale, 1e-12))
+        reward = (
+            -self.cfg.V * avg_aodt / self.cfg.aodt_scale
+            - lyap_cost
+            - self.cfg.manager_bh_soft_weight * soft_violation
+        )
         self.k += 1
         done = self.k >= self.cfg.K
         info = {
@@ -350,6 +353,7 @@ class ManagerEnv:
             "successful_dt_updates": int(sum(x["served"] for x in infos)),
             "max_Z": float(np.max(self.fast.Z)),
             "mean_Z": float(np.mean(self.fast.Z)),
+            "soft_violation": soft_violation,
             "dt_host": dt_host.copy(),
             "pos_idx": pos_idx.copy(),
         }
