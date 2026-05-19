@@ -257,6 +257,43 @@ class DTUAVAoDTEnv:
             mult *= base
         return int(x)
 
+    def valid_worker_action_mask(self):
+        """Mask worker actions to valid TDMA schedules for the current pending set.
+
+        If packets are pending, the mask requires the worker to use as many UAVs as
+        possible up to min(M, pending sensors), and to schedule the currently oldest
+        pending sensor views first. This removes invalid duplicate scheduling and
+        prevents deterministic learned policies from starving one sensor view.
+        """
+        pending = set(np.flatnonzero(self.Q > 0))
+        target_served = min(self.M, len(pending))
+        if target_served > 0:
+            pending_arr = np.array(sorted(pending), dtype=np.int64)
+            scores = self.aodt_i[pending_arr] + 0.4 * self.U[pending_arr]
+            target_sensors = set(pending_arr[np.argsort(-scores)[:target_served]])
+        else:
+            target_sensors = set()
+        mask = np.zeros(self.worker_action_dim, dtype=np.bool_)
+        for action in range(self.worker_action_dim):
+            choices = self.decode_worker_action(action)
+            selected = []
+            valid = True
+            for sensor, p_idx in choices:
+                if p_idx < 0 or p_idx >= len(self.cfg.p_levels):
+                    valid = False
+                    break
+                if sensor < 0:
+                    continue
+                if sensor not in pending or sensor in selected:
+                    valid = False
+                    break
+                selected.append(sensor)
+            if valid and len(selected) == target_served and set(selected) == target_sensors:
+                mask[action] = True
+        if not np.any(mask):
+            mask[0] = True
+        return mask
+
 
 class ManagerEnv:
     def __init__(self, cfg, worker_policy=None, seed=None):
@@ -288,7 +325,8 @@ class ManagerEnv:
                 a = self.fast.heuristic_worker_action(avoid_energy=False)
             else:
                 s = self.fast.worker_state()
-                a = self.worker_policy.act_deterministic(s)
+                mask = self.fast.valid_worker_action_mask()
+                a = self.worker_policy.act_deterministic(s, action_mask=mask)
             _, _, _, info = self.fast.step_worker(a)
             infos.append(info)
 
@@ -308,6 +346,8 @@ class ManagerEnv:
             "p95_aodt": p95_aodt,
             "max_aodt": max_aodt,
             "E_bh_m": E_window,
+            "served": int(sum(x["served"] for x in infos)),
+            "successful_dt_updates": int(sum(x["served"] for x in infos)),
             "max_Z": float(np.max(self.fast.Z)),
             "mean_Z": float(np.mean(self.fast.Z)),
             "dt_host": dt_host.copy(),

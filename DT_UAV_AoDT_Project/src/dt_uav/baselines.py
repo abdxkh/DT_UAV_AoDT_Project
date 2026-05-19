@@ -68,12 +68,16 @@ def evaluate_fixed_policy(cfg, manager_policy=None, worker_policy=None, baseline
             state, reward, done, info = env.step(action)
             infos.append(info)
         E = np.mean(np.stack([x["E_bh_m"] for x in infos]), axis=0)
+        served = int(sum(x["served"] for x in infos))
+        capacity = cfg.K * cfg.H * cfg.M
         rows.append({
             "policy": baseline or "lya_hppo",
             "episode": ep,
             "avg_aodt": float(np.mean([x["avg_aodt"] for x in infos])),
             "p95_aodt": float(np.percentile([x["p95_aodt"] for x in infos], 95)),
             "max_aodt": float(np.max([x["max_aodt"] for x in infos])),
+            "served_ratio": float(served / max(capacity, 1)),
+            "successful_dt_updates": served,
             "mean_backhaul_energy": float(np.mean(E)),
             "max_backhaul_energy": float(np.max(E)),
             "feasible": bool(np.all(E <= cfg.E_bh_max_per_uav + 1e-9)),

@@ -25,17 +25,23 @@ class ActorCritic(nn.Module):
         return logits, value
 
     @torch.no_grad()
-    def act_deterministic(self, state):
+    def act_deterministic(self, state, action_mask=None):
         device = next(self.parameters()).device
         s = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         logits, _ = self.forward(s)
+        if action_mask is not None:
+            mask = torch.as_tensor(action_mask, dtype=torch.bool, device=device).unsqueeze(0)
+            logits = logits.masked_fill(~mask, -1e9)
         return int(torch.argmax(logits, dim=-1).item())
 
     @torch.no_grad()
-    def act(self, state):
+    def act(self, state, action_mask=None):
         device = next(self.parameters()).device
         s = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         logits, value = self.forward(s)
+        if action_mask is not None:
+            mask = torch.as_tensor(action_mask, dtype=torch.bool, device=device).unsqueeze(0)
+            logits = logits.masked_fill(~mask, -1e9)
         dist = Categorical(logits=logits)
         action = dist.sample()
         return int(action.item()), float(dist.log_prob(action).item()), float(value.item())
@@ -49,14 +55,19 @@ class RolloutBuffer:
         self.rewards = []
         self.dones = []
         self.values = []
+        self.action_masks = []
 
-    def add(self, state, action, logp, reward, done, value):
+    def add(self, state, action, logp, reward, done, value, action_mask=None):
         self.states.append(np.array(state, dtype=np.float32))
         self.actions.append(int(action))
         self.logps.append(float(logp))
         self.rewards.append(float(reward))
         self.dones.append(float(done))
         self.values.append(float(value))
+        if action_mask is None:
+            self.action_masks.append(None)
+        else:
+            self.action_masks.append(np.array(action_mask, dtype=np.bool_))
 
     def clear(self):
         self.__init__()
@@ -97,6 +108,10 @@ class PPOTrainer:
         old_logps = torch.as_tensor(buf.logps, dtype=torch.float32, device=self.device)
         returns = torch.as_tensor(returns, dtype=torch.float32, device=self.device)
         advantages = torch.as_tensor(advantages, dtype=torch.float32, device=self.device)
+        if buf.action_masks and buf.action_masks[0] is not None:
+            action_masks = torch.as_tensor(np.array(buf.action_masks), dtype=torch.bool, device=self.device)
+        else:
+            action_masks = None
         n = states.shape[0]
         idxs = np.arange(n)
         losses = []
@@ -105,6 +120,8 @@ class PPOTrainer:
             for start in range(0, n, self.batch_size):
                 mb = idxs[start:start+self.batch_size]
                 logits, values = self.model(states[mb])
+                if action_masks is not None:
+                    logits = logits.masked_fill(~action_masks[mb], -1e9)
                 dist = Categorical(logits=logits)
                 logps = dist.log_prob(actions[mb])
                 entropy = dist.entropy().mean()

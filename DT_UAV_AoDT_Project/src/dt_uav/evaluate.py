@@ -35,7 +35,14 @@ def evaluate_all(cfg, out_dir="results", episodes=5, candidate=False):
     df = pd.DataFrame(rows)
     os.makedirs(out_dir, exist_ok=True)
     df.to_csv(os.path.join(out_dir, "evaluation.csv"), index=False)
-    print(df.groupby("policy")[["avg_aodt", "p95_aodt", "max_aodt", "mean_backhaul_energy", "feasible"]].mean())
+    print(df.groupby("policy")[[
+        "avg_aodt",
+        "p95_aodt",
+        "max_aodt",
+        "served_ratio",
+        "mean_backhaul_energy",
+        "feasible",
+    ]].mean())
     if candidate:
         best = candidate_site_search(cfg, worker_policy=worker, max_actions=2000)
         print("Best candidate-site deployment:", best)

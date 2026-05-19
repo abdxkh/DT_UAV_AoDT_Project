@@ -32,9 +32,10 @@ def train_worker(cfg, out_dir="results"):
                 a_m = env.rng.integers(0, env.manager_action_dim)
                 dt_host, pos_idx = env.decode_manager_action(a_m)
                 env.set_manager_action(dt_host, pos_idx)
-            action, logp, value = model.act(state)
+            action_mask = env.valid_worker_action_mask()
+            action, logp, value = model.act(state, action_mask=action_mask)
             next_state, reward, done, info = env.step_worker(action)
-            buf.add(state, action, logp, reward, done, value)
+            buf.add(state, action, logp, reward, done, value, action_mask=action_mask)
             state = next_state
             infos.append(info)
         with torch.no_grad():
