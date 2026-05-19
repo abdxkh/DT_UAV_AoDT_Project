@@ -1,0 +1,9 @@
+[project]
+name = "dt-uav-aodt"
+version = "0.1.0"
+description = "Age of Digital Twin minimization for DT-assisted UAV edge networks with Lyapunov-guided HPPO"
+requires-python = ">=3.9"
+dependencies = ["numpy", "pandas", "matplotlib", "torch", "jupyter"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
