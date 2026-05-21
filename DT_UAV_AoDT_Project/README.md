@@ -41,13 +41,21 @@ After pushing this folder to GitHub, in Colab run:
 !pip install -r requirements.txt
 ```
 
-Then run a very small smoke test:
+Then run the small demo:
+
+```python
+!PYTHONPATH=src python -m dt_uav.run_final --profile small --out results_colab --episodes 5 --candidate
+```
+
+This will train the worker and manager, run the baseline comparison, save `evaluation.csv`, and write plots into `results_colab/figures`.
+
+For a very small smoke test:
 
 ```python
 !PYTHONPATH=src python -m dt_uav.quickstart
 ```
 
-For the small research setup:
+For the small research setup with the separate steps:
 
 ```python
 !PYTHONPATH=src python -m dt_uav.train_worker --profile small --out results_small
